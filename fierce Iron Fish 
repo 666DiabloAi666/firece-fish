@@ -1,0 +1,105 @@
+# complex_intelligence/main.py
+from core.agent import Agent
+from core.planner import Planner
+from core.reasoner import Reasoner
+from memory.knowledge_base import KnowledgeBase
+from net.communicator import Communicator
+
+if __name__ == '__main__':
+    memory = KnowledgeBase()
+    planner = Planner()
+    reasoner = Reasoner()
+    communicator = Communicator("http://localhost:8000")
+
+    agent = Agent("IronAI", planner, reasoner, memory, communicator)
+
+    # Example perception and action
+    agent.perceive("temperature too high")
+    decisions = agent.think()
+    agent.act(decisions)
+
+
+# complex_intelligence/core/agent.py
+class Agent:
+    def __init__(self, name, planner, reasoner, memory, communicator):
+        self.name = name
+        self.planner = planner
+        self.reasoner = reasoner
+        self.memory = memory
+        self.communicator = communicator
+
+    def perceive(self, input_data):
+        facts = self.memory.extract_facts(input_data)
+        self.memory.store(facts)
+
+    def think(self):
+        goals = self.memory.get_goals()
+        plan = self.planner.create_plan(goals, self.memory.facts)
+        decisions = self.reasoner.evaluate_plan(plan)
+        return decisions
+
+    def act(self, decisions):
+        for action in decisions:
+            self.communicator.send_action(action)
+
+
+# complex_intelligence/core/planner.py
+class Planner:
+    def create_plan(self, goals, facts):
+        plan = []
+        for goal in goals:
+            if "temperature" in goal:
+                plan.append("activate_cooling")
+        return plan
+
+
+# complex_intelligence/core/reasoner.py
+class Reasoner:
+    def evaluate_plan(self, plan):
+        return [step for step in plan if self._is_logically_valid(step)]
+
+    def _is_logically_valid(self, action):
+        return "forbidden" not in action
+
+
+# complex_intelligence/memory/knowledge_base.py
+class KnowledgeBase:
+    def __init__(self):
+        self.facts = []
+
+    def extract_facts(self, input_data):
+        return [input_data]
+
+    def store(self, facts):
+        self.facts.extend(facts)
+
+    def get_goals(self):
+        goals = []
+        for fact in self.facts:
+            if "temperature" in fact:
+                goals.append("reduce_temperature")
+        return goals
+
+
+# complex_intelligence/net/communicator.py
+import System.Net
+from System.IO import StreamReader
+import System.Text
+
+class Communicator:
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
+
+    def send_action(self, action):
+        request = System.Net.WebRequest.Create(self.endpoint + "/predict")
+        request.Method = "POST"
+        request.ContentType = "application/json"
+
+        body = '{"action": "%s"}' % action
+        data = System.Text.Encoding.UTF8.GetBytes(body)
+        request.ContentLength = data.Length
+        request.GetRequestStream().Write(data, 0, data.Length)
+
+        response = request.GetResponse()
+        reader = StreamReader(response.GetResponseStream())
+        print(reader.ReadToEnd())
